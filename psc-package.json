@@ -1,0 +1,16 @@
+{
+  "name": "erl-test-eunit",
+  "set": "erl-0.13.2-20190808",
+  "source": "https://github.com/purerl/package-sets.git",
+  "depends": [
+    "assert",
+    "console",
+    "debug",
+    "erl-lists",
+    "erl-tuples",
+    "foreign",
+    "free",
+    "prelude",
+    "psci-support"
+  ]
+}
