@@ -1,6 +1,7 @@
-module Erl.Test.EUnit 
+module Erl.Test.EUnit
 ( TestF
 , TestSet
+, TestSuite
 , suite
 , test
 , collectTests
