@@ -14,6 +14,7 @@ import Control.Monad.Free (Free, liftF, runFreeM)
 import Control.Monad.State (State, execState, modify_, runState)
 import Data.Tuple as Tuple
 import Effect (Effect)
+import Erl.Atom (atom)
 import Erl.Data.List (List, nil, (:))
 import Erl.Data.Tuple (tuple2)
 import Foreign (Foreign)
@@ -49,7 +50,7 @@ collectTests tst = execState (runFreeM go tst) nil
 
   go :: forall a. TestF (Free TestF a) -> State (List TestSet) (Free TestF a)
   go (TestUnit s t a) = do
-    modify_ (testSet (tuple2 s t) : _)
+    modify_ (testSet (tuple2 (atom "spawn") (tuple2 s t)) : _)
     pure a
   go (TestGroup (Group s tests) a) = do
     let grouped = case runState (runFreeM go tests) nil of
