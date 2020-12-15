@@ -9,6 +9,7 @@ module Erl.Test.EUnit
 , setup
 , teardown
 , setupTeardown
+, empty
 ) where
 
 import Prelude
@@ -40,17 +41,22 @@ data TestF a =
     TestGroup Group a
   | TestUnit String Test a
   | TestState Setup Teardown TestSuite a
+  | TestEmpty a
 
 instance functorTestF :: Functor TestF where
   map f (TestGroup g a) = TestGroup g (f a)
   map f (TestUnit l t a) = TestUnit l t (f a)
   map f (TestState s t su a) = TestState s t su (f a)
+  map f (TestEmpty a) = TestEmpty (f a)
 
 suite :: String -> TestSuite -> TestSuite
 suite label tests = liftF $ TestGroup (Group label tests) unit
 
 test :: String -> Test -> TestSuite
 test l t = liftF $ TestUnit l t unit
+
+empty :: TestSuite
+empty = liftF $ TestEmpty unit
 
 setupTeardown :: Setup -> Teardown -> TestSuite -> TestSuite
 setupTeardown s t su = liftF $ TestState s t su unit
@@ -78,6 +84,8 @@ collectTests tst = execState (runFreeM go tst) nil
     let grouped = case runState (runFreeM go tests) nil of
                     Tuple.Tuple _ g -> g 
     modify_ (testSet (tuple4 (atom "setup") s (\_ -> t) grouped) : _)
+    pure a
+  go (TestEmpty a) = do
     pure a
 
 foreign import runTests_ :: forall a. a -> (Foreign -> a) -> List TestSet -> Effect a
