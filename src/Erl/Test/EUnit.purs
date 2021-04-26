@@ -18,6 +18,7 @@ import Control.Monad.Free (Free, liftF, runFreeM)
 import Control.Monad.State (State, execState, modify_, runState)
 import Data.Tuple as Tuple
 import Effect (Effect)
+import Effect.Unsafe (unsafePerformEffect)
 import Erl.Atom (atom)
 import Erl.Data.List (List, nil, (:))
 import Erl.Data.Tuple (tuple2, tuple4)
@@ -83,7 +84,7 @@ collectTests tst = execState (runFreeM go tst) nil
   go (TestState s t tests a) = do
     let grouped = case runState (runFreeM go tests) nil of
                     Tuple.Tuple _ g -> g 
-    modify_ (testSet (tuple4 (atom "setup") s (\_ -> t) grouped) : _)
+    modify_ (testSet (tuple4 (atom "setup") s (\_ -> unsafePerformEffect t) grouped) : _)
     pure a
   go (TestEmpty a) = do
     pure a

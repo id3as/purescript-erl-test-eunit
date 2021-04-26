@@ -6,7 +6,7 @@ import Debug.Trace (trace, traceM)
 import Effect (Effect)
 import Effect.Console (log)
 import Erl.Data.List (nil, (:))
-import Erl.Test.EUnit (runTests, suite, test)
+import Erl.Test.EUnit (runTests, setupTeardown, suite, test)
 import Test.Assert (assert, assertEqual)
 
 main :: Effect Unit
@@ -28,3 +28,7 @@ main =
         log "in test 1.2"
     test "outside suite" do
         log "in test outside"
+    setupTeardown (trace "[t] setup" \_ -> log "setup") (trace "[t] teardown" \_ -> log "teardown") do
+      test "setup/teardown test" do
+        log "test with setupTeardown"
+        assert false
