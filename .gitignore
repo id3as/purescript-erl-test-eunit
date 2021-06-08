@@ -1,4 +1,5 @@
 .psc-package/
 ebin/
 output/
+.spago/
 .psc-ide-port

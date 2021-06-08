@@ -7,3 +7,5 @@ ps:
 
 test: 
 	@spago -x test.dhall test
+
+ci: test
