@@ -1,4 +1,4 @@
-.PHONY: ps erl all test repl
+.PHONY: ps all test ci
 
 all: test
 
@@ -8,4 +8,4 @@ ps:
 test: 
 	@spago -x test.dhall test
 
-ci: test
+ci: ps test
