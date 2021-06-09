@@ -1,16 +1,16 @@
 module Erl.Test.EUnit
-( TestF
-, TestSet
-, TestSuite
-, suite
-, test
-, collectTests
-, runTests
-, setup
-, teardown
-, setupTeardown
-, empty
-) where
+  ( TestF
+  , TestSet
+  , TestSuite
+  , suite
+  , test
+  , collectTests
+  , runTests
+  , setup
+  , teardown
+  , setupTeardown
+  , empty
+  ) where
 
 import Prelude
 
@@ -30,16 +30,23 @@ foreign import data TestSet :: Type
 testSet :: forall a. a -> TestSet
 testSet = unsafeCoerce
 
-type Test = Effect Unit
-type Setup = Effect Unit
-type Teardown = Effect Unit
+type Test
+  = Effect Unit
 
-type TestSuite = Free TestF Unit
+type Setup
+  = Effect Unit
 
-data Group = Group String TestSuite
+type Teardown
+  = Effect Unit
 
-data TestF a =
-    TestGroup Group a
+type TestSuite
+  = Free TestF Unit
+
+data Group
+  = Group String TestSuite
+
+data TestF a
+  = TestGroup Group a
   | TestUnit String Test a
   | TestState Setup Teardown TestSuite a
   | TestEmpty a
@@ -71,21 +78,25 @@ teardown t su = liftF $ TestState (pure unit) t su unit
 collectTests :: TestSuite -> List TestSet
 collectTests tst = execState (runFreeM go tst) nil
   where
-
   go :: forall a. TestF (Free TestF a) -> State (List TestSet) (Free TestF a)
   go (TestUnit s t a) = do
     modify_ (testSet (tuple2 (atom "spawn") (tuple2 s t)) : _)
     pure a
+
   go (TestGroup (Group s tests) a) = do
-    let grouped = case runState (runFreeM go tests) nil of
-                    Tuple.Tuple _ g -> g 
+    let
+      grouped = case runState (runFreeM go tests) nil of
+        Tuple.Tuple _ g -> g
     modify_ (testSet (tuple2 s grouped) : _)
     pure a
+
   go (TestState s t tests a) = do
-    let grouped = case runState (runFreeM go tests) nil of
-                    Tuple.Tuple _ g -> g 
+    let
+      grouped = case runState (runFreeM go tests) nil of
+        Tuple.Tuple _ g -> g
     modify_ (testSet (tuple4 (atom "setup") s (\_ -> unsafePerformEffect t) grouped) : _)
     pure a
+
   go (TestEmpty a) = do
     pure a
 
