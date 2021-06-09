@@ -12,7 +12,7 @@ let
     builtins.fetchGit {
       url = "https://github.com/purerl/nixpkgs-purerl.git";
       ref = "master";
-      rev = "0f28e40f9942c1449bfa0d400dee49a517102047";
+      rev = "2340b9f8444659f4092045df77cab34817779cc7";
     };
 
   purerlSupport =
