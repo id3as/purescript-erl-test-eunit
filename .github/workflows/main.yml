@@ -11,8 +11,8 @@ jobs:
     - name: Cache install Nix packages
       uses: rikhuijzer/cache-install@v1.0.8
       with:
-        key: nix-${{ hashFiles('shell.nix') }}
-        nix_file: 'shell.nix'
+        key: nix-${{ hashFiles('packages.nix') }}
+        nix_file: 'packages.nix'
     - name: Build and test
-      run: nix-shell --run 'make ci'
+      run: make ci
 
