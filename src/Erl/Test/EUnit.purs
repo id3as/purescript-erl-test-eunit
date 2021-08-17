@@ -17,7 +17,6 @@ import Prelude
 import Control.Monad.Free (Free, liftF, runFreeM)
 import Control.Monad.State (State, execState, modify_, runState)
 import Data.Tuple as Tuple
-import Debug.Trace (spy)
 import Effect (Effect)
 import Effect.Unsafe (unsafePerformEffect)
 import Erl.Atom (atom)
@@ -103,7 +102,7 @@ collectTests tst = execState (runFreeM go tst) nil
     let
       grouped = case runState (runFreeM go tests) nil of
         Tuple.Tuple _ g -> g
-    modify_ (testSet (tuple3 (atom "timeout") t (spy "tests" grouped)) : _)
+    modify_ (testSet (tuple3 (atom "timeout") t grouped) : _)
     pure a
   go (TestEmpty a) = do
     pure a
