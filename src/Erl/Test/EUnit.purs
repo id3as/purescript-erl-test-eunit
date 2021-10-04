@@ -110,4 +110,4 @@ collectTests tst = execState (runFreeM go tst) nil
 foreign import runTests_ :: forall a. a -> (Foreign -> a) -> List TestSet -> Effect a
 
 runTests :: TestSuite -> Effect Boolean
-runTests suite = runTests_ true (const false) $ collectTests suite
+runTests testSuite = runTests_ true (const false) $ collectTests testSuite
