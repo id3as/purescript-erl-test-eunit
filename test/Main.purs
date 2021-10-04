@@ -2,10 +2,9 @@ module Test.Main (main) where
 
 import Prelude
 
-import Debug.Trace (trace, traceM)
+import Debug.Trace (trace)
 import Effect (Effect)
 import Effect.Console (log)
-import Erl.Data.List (nil, (:))
 import Erl.Test.EUnit (runTests, setupTeardown, suite, test)
 import Test.Assert (assert, assertEqual)
 

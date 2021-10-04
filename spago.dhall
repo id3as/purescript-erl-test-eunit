@@ -4,9 +4,7 @@ You can edit this file as you like.
 -}
 { name = "arrays"
 , dependencies =
-  [ "assert"
-  , "console"
-  , "debug"
+  [ "effect"
   , "erl-atom"
   , "erl-lists"
   , "erl-tuples"
