@@ -86,7 +86,7 @@ setupTeardown :: forall a. TestSetup a -> TestTeardown a -> (a -> TestSuite) -> 
 setupTeardown s t su = liftF $ TestState (map testDataToForeign s) (teardownToForeign t) (testSuiteToForeign su) unit
 
 setup :: forall a. TestSetup a -> (a -> TestSuite) -> TestSuite
-setup s su = liftF $ TestState (map testDataToForeign s) (pure $ unsafeCoerce unit) (testSuiteToForeign su) unit
+setup s su = liftF $ TestState (map testDataToForeign s) (\_ -> pure unit) (testSuiteToForeign su) unit
 
 teardown :: Effect Unit -> TestSuite -> TestSuite
 teardown t su = liftF $ TestState (pure $ unsafeCoerce unit) (const t) (const su) unit
