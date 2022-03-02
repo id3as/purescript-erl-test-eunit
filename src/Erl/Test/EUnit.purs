@@ -1,19 +1,23 @@
 module Erl.Test.EUnit
   ( TestF
   , TestSet
+  , TestSetup
   , TestSuite
-  , suite
-  , timeout
-  , test
+  , TestTeardown
   , collectTests
+  , empty
   , runTests
   , setup
-  , teardown
   , setupTeardown
-  , empty
-  ) where
+  , suite
+  , teardown
+  , test
+  , timeout
+  )
+  where
 
 import Prelude
+
 import Control.Monad.Free (Free, liftF, runFreeM)
 import Control.Monad.State (State, execState, modify_, runState)
 import Data.Tuple as Tuple
@@ -33,9 +37,12 @@ testSet = unsafeCoerce
 type Test
   = Effect Unit
 type Setup
-  = Effect Unit
+  = Effect Foreign
 type Teardown
-  = Effect Unit
+  = Foreign -> Effect Unit
+
+type TestSetup a = Effect a
+type TestTeardown a = a -> Effect Unit
 
 type TestSuite
   = Free TestF Unit
@@ -46,7 +53,7 @@ data Group
 data TestF a
   = TestGroup Group a
   | TestUnit String Test a
-  | TestState Setup Teardown TestSuite a
+  | TestState Setup Teardown (Foreign -> TestSuite) a
   | TestTimeout Int TestSuite a
   | TestEmpty a
 
@@ -66,14 +73,23 @@ test l t = liftF $ TestUnit l t unit
 empty :: TestSuite
 empty = liftF $ TestEmpty unit
 
-setupTeardown :: Setup -> Teardown -> TestSuite -> TestSuite
-setupTeardown s t su = liftF $ TestState s t su unit
+testDataToForeign :: forall a. a -> Foreign
+testDataToForeign = unsafeCoerce
 
-setup :: Setup -> TestSuite -> TestSuite
-setup s su = liftF $ TestState s (pure unit) su unit
+teardownToForeign :: forall a. TestTeardown a -> Teardown
+teardownToForeign = unsafeCoerce
 
-teardown :: Teardown -> TestSuite -> TestSuite
-teardown t su = liftF $ TestState (pure unit) t su unit
+testSuiteToForeign :: forall a. (a -> TestSuite) -> (Foreign -> TestSuite)
+testSuiteToForeign = unsafeCoerce
+
+setupTeardown :: forall a. TestSetup a -> TestTeardown a -> (a -> TestSuite) -> TestSuite
+setupTeardown s t su = liftF $ TestState (map testDataToForeign s) (teardownToForeign t) (testSuiteToForeign su) unit
+
+setup :: forall a. TestSetup a -> (a -> TestSuite) -> TestSuite
+setup s su = liftF $ TestState (map testDataToForeign s) (pure $ unsafeCoerce unit) (testSuiteToForeign su) unit
+
+teardown :: Effect Unit -> TestSuite -> TestSuite
+teardown t su = liftF $ TestState (pure $ unsafeCoerce unit) (const t) (const su) unit
 
 timeout :: Int -> TestSuite -> TestSuite
 timeout t su = liftF $ TestTimeout t su unit
@@ -93,10 +109,7 @@ collectTests tst = execState (runFreeM go tst) nil
     modify_ (testSet (tuple2 s grouped) : _)
     pure a
   go (TestState s t tests a) = do
-    let
-      grouped = case runState (runFreeM go tests) nil of
-        Tuple.Tuple _ g -> g
-    modify_ (testSet (tuple4 (atom "setup") s (\_ -> unsafePerformEffect t) grouped) : _)
+    modify_ (testSet (tuple4 (atom "setup") s (\testData -> unsafePerformEffect (t testData)) (\foreign_ -> collectTests (tests foreign_))) : _)
     pure a
   go (TestTimeout t tests a) = do
     let

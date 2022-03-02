@@ -27,7 +27,7 @@ main =
         log "in test 1.2"
     test "outside suite" do
         log "in test outside"
-    setupTeardown (trace "[t] setup" \_ -> log "setup") (trace "[t] teardown" \_ -> log "teardown") do
+    setupTeardown (trace "[t] setup" \_ -> log "setup") (const $ trace "[t] teardown" \_ -> log "teardown") \_ -> do
       test "setup/teardown test" do
         log "test with setupTeardown"
         assert false
