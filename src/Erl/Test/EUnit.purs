@@ -91,8 +91,12 @@ setup s su = liftF $ TestState (map testDataToForeign s) (\_ -> pure unit) (test
 teardown :: Effect Unit -> TestSuite -> TestSuite
 teardown t su = liftF $ TestState (pure $ unsafeCoerce unit) (const t) (const su) unit
 
-timeout :: Int -> TestSuite -> TestSuite
-timeout t su = liftF $ TestTimeout t su unit
+-- Note: this should be the only way allowed to build a Timeout node, because
+-- eunit only applies timeouts to single tests.
+-- This also implies that there seem not to be a way to apply a collective timeout
+-- to a list of a tests.
+timeout :: Int -> String -> Test -> TestSuite
+timeout time label t = liftF $ TestTimeout time (test label t) unit
 
 collectTests :: TestSuite -> List TestSet
 collectTests tst = execState (runFreeM go tst) nil
@@ -102,11 +106,11 @@ collectTests tst = execState (runFreeM go tst) nil
   go (TestUnit s t a) = do
     modify_ (testSet (tuple2 (atom "spawn") (tuple2 s t)) : _)
     pure a
-  go (TestGroup (Group s tests) a) = do
+  go (TestGroup (Group label tests) a) = do
     let
       grouped = case runState (runFreeM go tests) nil of
         Tuple.Tuple _ g -> g
-    modify_ (testSet (tuple2 s grouped) : _)
+    modify_ (testSet (tuple2 label grouped) : _)
     pure a
   go (TestState s t tests a) = do
     modify_ (testSet (tuple4 (atom "setup") s (\testData -> unsafePerformEffect (t testData)) (\foreign_ -> collectTests (tests foreign_))) : _)
