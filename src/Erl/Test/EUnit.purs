@@ -20,7 +20,7 @@ import Data.Tuple as Tuple
 import Effect (Effect)
 import Effect.Unsafe (unsafePerformEffect)
 import Erl.Atom (atom)
-import Erl.Data.List (List, nil, (:))
+import Erl.Data.List (List, nil, reverse, (:))
 import Erl.Data.Tuple (tuple2, tuple3, tuple4)
 import Foreign (Foreign)
 import Unsafe.Coerce (unsafeCoerce)
@@ -79,7 +79,7 @@ timeout :: Int -> TestSuite -> TestSuite
 timeout t su = liftF $ TestTimeout t su unit
 
 collectTests :: TestSuite -> List TestSet
-collectTests tst = execState (runFreeM go tst) nil
+collectTests tst = reverse $ execState (runFreeM go tst) nil
   where
 
   go :: forall a. TestF (Free TestF a) -> State (List TestSet) (Free TestF a)
@@ -89,19 +89,19 @@ collectTests tst = execState (runFreeM go tst) nil
   go (TestGroup (Group s tests) a) = do
     let
       grouped = case runState (runFreeM go tests) nil of
-        Tuple.Tuple _ g -> g
+        Tuple.Tuple _ g -> reverse g
     modify_ (testSet (tuple2 s grouped) : _)
     pure a
   go (TestState s t tests a) = do
     let
       grouped = case runState (runFreeM go tests) nil of
-        Tuple.Tuple _ g -> g
+        Tuple.Tuple _ g -> reverse g
     modify_ (testSet (tuple4 (atom "setup") s (\_ -> unsafePerformEffect t) grouped) : _)
     pure a
   go (TestTimeout t tests a) = do
     let
       grouped = case runState (runFreeM go tests) nil of
-        Tuple.Tuple _ g -> g
+        Tuple.Tuple _ g -> reverse g
     modify_ (testSet (tuple3 (atom "timeout") t grouped) : _)
     pure a
   go (TestEmpty a) = do
