@@ -1,5 +1,9 @@
 module Erl.Test.EUnit
-  ( TestF
+  ( TestF(..)
+  , Group(..)
+  , Test
+  , Setup
+  , Teardown
   , TestSet
   , TestSuite
   , suite
