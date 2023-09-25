@@ -2,7 +2,7 @@ module Test.Main (main) where
 
 import Prelude
 
-import Debug.Trace (trace)
+import Debug (trace)
 import Effect (Effect)
 import Effect.Console (log)
 import Erl.Test.EUnit (runTests, setupTeardown, suite, test)
@@ -16,7 +16,7 @@ main =
         assert false
         log "in test 1"
       test "test 2" do
-        assertEqual { actual:  "foo", expected: "bar" }
+        assertEqual { actual: "foo", expected: "bar" }
         log "in test 1"
       test "test 3" do
         log "in test 1"
@@ -26,7 +26,7 @@ main =
       test "test 1.2" do
         log "in test 1.2"
     test "outside suite" do
-        log "in test outside"
+      log "in test outside"
     setupTeardown (trace "[t] setup" \_ -> log "setup") (const $ trace "[t] teardown" \_ -> log "teardown") \_ -> do
       test "setup/teardown test" do
         log "test with setupTeardown"

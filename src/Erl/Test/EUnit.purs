@@ -1,5 +1,9 @@
 module Erl.Test.EUnit
-  ( TestF
+  ( TestF(..)
+  , Group(..)
+  , Test
+  , Setup
+  , Teardown
   , TestSet
   , TestSetup
   , TestSuite
@@ -13,8 +17,7 @@ module Erl.Test.EUnit
   , teardown
   , test
   , timeout
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -24,7 +27,7 @@ import Data.Tuple as Tuple
 import Effect (Effect)
 import Effect.Unsafe (unsafePerformEffect)
 import Erl.Atom (atom)
-import Erl.Data.List (List, nil, (:))
+import Erl.Data.List (List, nil, reverse, (:))
 import Erl.Data.Tuple (tuple2, tuple3, tuple4)
 import Foreign (Foreign)
 import Unsafe.Coerce (unsafeCoerce)
@@ -34,21 +37,18 @@ foreign import data TestSet :: Type
 testSet :: forall a. a -> TestSet
 testSet = unsafeCoerce
 
-type Test
-  = Effect Unit
-type Setup
-  = Effect Foreign
-type Teardown
-  = Foreign -> Effect Unit
+type Test = Effect Unit
+
+type Setup = Effect Foreign
+
+type Teardown = Foreign -> Effect Unit
 
 type TestSetup a = Effect a
 type TestTeardown a = a -> Effect Unit
 
-type TestSuite
-  = Free TestF Unit
+type TestSuite = Free TestF Unit
 
-data Group
-  = Group String TestSuite
+data Group = Group String TestSuite
 
 data TestF a
   = TestGroup Group a
@@ -99,7 +99,7 @@ timeout :: Int -> String -> Test -> TestSuite
 timeout time label t = liftF $ TestTimeout time (test label t) unit
 
 collectTests :: TestSuite -> List TestSet
-collectTests tst = execState (runFreeM go tst) nil
+collectTests tst = reverse $ execState (runFreeM go tst) nil
   where
 
   go :: forall a. TestF (Free TestF a) -> State (List TestSet) (Free TestF a)
@@ -109,16 +109,16 @@ collectTests tst = execState (runFreeM go tst) nil
   go (TestGroup (Group label tests) a) = do
     let
       grouped = case runState (runFreeM go tests) nil of
-        Tuple.Tuple _ g -> g
+        Tuple.Tuple _ g -> reverse g
     modify_ (testSet (tuple2 label grouped) : _)
     pure a
   go (TestState s t tests a) = do
-    modify_ (testSet (tuple4 (atom "setup") s (\testData -> unsafePerformEffect (t testData)) (\foreign_ -> collectTests (tests foreign_))) : _)
+    modify_ (testSet (tuple4 (atom "setup") s (\testData -> unsafePerformEffect (t testData)) (\foreign_ -> reverse $ collectTests (tests foreign_))) : _)
     pure a
   go (TestTimeout t tests a) = do
     let
       grouped = case runState (runFreeM go tests) nil of
-        Tuple.Tuple _ g -> g
+        Tuple.Tuple _ g -> reverse g
     modify_ (testSet (tuple3 (atom "timeout") t grouped) : _)
     pure a
   go (TestEmpty a) = do
