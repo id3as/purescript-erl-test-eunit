@@ -2,11 +2,17 @@ module Test.Main (main) where
 
 import Prelude
 
+import Control.Monad.Free (liftF)
 import Debug (trace)
 import Effect (Effect)
 import Effect.Console (log)
-import Erl.Test.EUnit (runTests, setupTeardown, suite, test)
+import Erl.Test.EUnit (TestF(..), TestSuite, runTests, setupTeardown, suite, test, timeout)
 import Test.Assert (assert, assertEqual)
+
+foreign import sleep :: Int -> Effect Unit
+
+naiveTimeout :: Int -> TestSuite -> TestSuite
+naiveTimeout time t = liftF $ TestTimeout time t unit
 
 main :: Effect Unit
 main =
@@ -31,3 +37,18 @@ main =
       test "setup/teardown test" do
         log "test with setupTeardown"
         assert false
+    -- The timeouts on single tests will stay at 5s even if we want 30
+    suite "timeouts don't work on anything else than single tests" do
+      naiveTimeout 30 do
+        test "slow test 1" do
+          log "slow test 1"
+          sleep 10000
+        test "slow test 2" do
+          log "slow test 2"
+          sleep 10000
+    suite "timeouts work on single tests" do
+      naiveTimeout 12 do
+        test "slow test 3" do
+          log "slow test 3"
+          sleep 10000
+

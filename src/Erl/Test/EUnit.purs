@@ -91,10 +91,9 @@ setup s su = liftF $ TestState (map testDataToForeign s) (\_ -> pure unit) (test
 teardown :: Effect Unit -> TestSuite -> TestSuite
 teardown t su = liftF $ TestState (pure $ unsafeCoerce unit) (const t) (const su) unit
 
--- Note: this should be the only way allowed to build a Timeout node, because
--- eunit only applies timeouts to single tests.
--- This also implies that there seem not to be a way to apply a collective timeout
--- to a list of a tests.
+-- This should be the only way allowed to build a Timeout node, because eunit only applies timeouts to single tests.
+-- This also implies that there seem not to be a way to apply a collective timeout to a list of a tests.
+-- We are not even the first to run into this: http://erlang.org/pipermail/erlang-questions/2015-January/082755.html
 timeout :: Int -> String -> Test -> TestSuite
 timeout time label t = liftF $ TestTimeout time (test label t) unit
 
@@ -113,7 +112,15 @@ collectTests tst = reverse $ execState (runFreeM go tst) nil
     modify_ (testSet (tuple2 label grouped) : _)
     pure a
   go (TestState s t tests a) = do
-    modify_ (testSet (tuple4 (atom "setup") s (\testData -> unsafePerformEffect (t testData)) (\foreign_ -> reverse $ collectTests (tests foreign_))) : _)
+    modify_
+      ( testSet
+          ( tuple4
+              (atom "setup")
+              s
+              (\testData -> unsafePerformEffect (t testData))
+              (\foreign_ -> reverse $ collectTests (tests foreign_))
+          ) : _
+      )
     pure a
   go (TestTimeout t tests a) = do
     let
