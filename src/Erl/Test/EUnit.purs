@@ -57,6 +57,7 @@ data TestF a
   = TestGroup Group a
   | TestUnit String Test a
   | TestState Setup Teardown (Foreign -> TestSuite) a
+  | TestStateSimple Setup Teardown TestSuite a
   | TestTimeout Int TestSuite a
   | TestEmpty a
 
@@ -64,6 +65,7 @@ instance functorTestF :: Functor TestF where
   map f (TestGroup g a) = TestGroup g (f a)
   map f (TestUnit l t a) = TestUnit l t (f a)
   map f (TestState s t su a) = TestState s t su (f a)
+  map f (TestStateSimple s t su a) = TestStateSimple s t su (f a)
   map f (TestTimeout t su a) = TestTimeout t su (f a)
   map f (TestEmpty a) = TestEmpty (f a)
 
@@ -95,10 +97,10 @@ teardown :: Effect Unit -> TestSuite -> TestSuite
 teardown t su = liftF $ TestState (pure $ unsafeCoerce unit) (const t) (const su) unit
 
 setup_ :: forall a. Effect Unit -> TestSuite -> TestSuite
-setup_ s su = liftF $ TestState (map testDataToForeign s) (\_ -> pure unit) (\_ -> su) unit
+setup_ s su = liftF $ TestStateSimple (map testDataToForeign s) (\_ -> pure unit) su unit
 
 setupTeardown_ :: forall a. Effect Unit -> Effect Unit -> TestSuite -> TestSuite
-setupTeardown_ s t su = liftF $ TestState (map testDataToForeign s) (\_ -> t) (\_ -> su) unit
+setupTeardown_ s t su = liftF $ TestStateSimple (map testDataToForeign s) (\_ -> t) su unit
 
 -- This should be the only way allowed to build a Timeout node, because eunit only applies timeouts to single tests.
 -- This also implies that there seem not to be a way to apply a collective timeout to a list of a tests.
@@ -119,6 +121,20 @@ collectTests tst = reverse $ execState (runFreeM go tst) nil
       grouped = case runState (runFreeM go tests) nil of
         Tuple.Tuple _ g -> reverse g
     modify_ (testSet (tuple2 label grouped) : _)
+    pure a
+  go (TestStateSimple s t tests a) = do
+    let
+      grouped = case runState (runFreeM go tests) nil of
+        Tuple.Tuple _ g -> reverse g
+    modify_
+      ( testSet
+          ( tuple4
+              (atom "setup")
+              s
+              (\testData -> unsafePerformEffect (t testData))
+              grouped
+          ) : _
+      )
     pure a
   go (TestState s t tests a) = do
     modify_

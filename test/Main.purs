@@ -6,7 +6,7 @@ import Control.Monad.Free (liftF)
 import Debug (trace)
 import Effect (Effect)
 import Effect.Console (log)
-import Erl.Test.EUnit (TestF(..), TestSuite, runTests, setupTeardown, suite, test, timeout)
+import Erl.Test.EUnit (TestF(..), TestSuite, runTests, setupTeardown, setupTeardown_, suite, test, timeout)
 import Test.Assert (assert, assertEqual)
 
 foreign import sleep :: Int -> Effect Unit
@@ -33,7 +33,7 @@ main =
         log "in test 1.2"
     test "outside suite" do
       log "in test outside"
-    setupTeardown (trace "[t] setup" \_ -> log "setup") (const $ trace "[t] teardown" \_ -> log "teardown") \_ -> do
+    setupTeardown_ (trace "[t] setup" \_ -> log "setup") (trace "[t] teardown" \_ -> log "teardown") do
       test "setup/teardown test" do
         log "test with setupTeardown"
         assert false
