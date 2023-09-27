@@ -13,6 +13,8 @@ module Erl.Test.EUnit
   , runTests
   , setup
   , setupTeardown
+  , setup_
+  , setupTeardown_
   , suite
   , teardown
   , test
@@ -44,6 +46,7 @@ type Setup = Effect Foreign
 type Teardown = Foreign -> Effect Unit
 
 type TestSetup a = Effect a
+
 type TestTeardown a = a -> Effect Unit
 
 type TestSuite = Free TestF Unit
@@ -90,6 +93,12 @@ setup s su = liftF $ TestState (map testDataToForeign s) (\_ -> pure unit) (test
 
 teardown :: Effect Unit -> TestSuite -> TestSuite
 teardown t su = liftF $ TestState (pure $ unsafeCoerce unit) (const t) (const su) unit
+
+setup_ :: forall a. Effect Unit -> TestSuite -> TestSuite
+setup_ s su = liftF $ TestState (map testDataToForeign s) (\_ -> pure unit) (\_ -> su) unit
+
+setupTeardown_ :: forall a. Effect Unit -> Effect Unit -> TestSuite -> TestSuite
+setupTeardown_ s t su = liftF $ TestState (map testDataToForeign s) (\_ -> t) (\_ -> su) unit
 
 -- This should be the only way allowed to build a Timeout node, because eunit only applies timeouts to single tests.
 -- This also implies that there seem not to be a way to apply a collective timeout to a list of a tests.

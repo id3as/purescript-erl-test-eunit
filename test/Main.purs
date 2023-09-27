@@ -37,6 +37,10 @@ main =
       test "setup/teardown test" do
         log "test with setupTeardown"
         assert false
+    setupTeardown (pure { foo: 42 }) (\{ foo } -> log $ "teardown with " <> show foo) \{ foo } -> do
+      test "setup/teardown test with data" do
+        log "test with setupTeardown passing data"
+        assert (foo == 42)
     -- The timeouts on single tests will stay at 5s even if we want 30
     suite "timeouts don't work on anything else than single tests" do
       naiveTimeout 30 do
