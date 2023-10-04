@@ -5,19 +5,24 @@ module Erl.Test.EUnit
   , Setup
   , Teardown
   , TestSet
+  , TestSetup
   , TestSuite
-  , suite
-  , timeout
-  , test
+  , TestTeardown
   , collectTests
+  , empty
   , runTests
   , setup
-  , teardown
   , setupTeardown
-  , empty
+  , setup_
+  , setupTeardown_
+  , suite
+  , teardown
+  , test
+  , timeout
   ) where
 
 import Prelude
+
 import Control.Monad.Free (Free, liftF, runFreeM)
 import Control.Monad.State (State, execState, modify_, runState)
 import Data.Tuple as Tuple
@@ -34,23 +39,25 @@ foreign import data TestSet :: Type
 testSet :: forall a. a -> TestSet
 testSet = unsafeCoerce
 
-type Test
-  = Effect Unit
-type Setup
-  = Effect Unit
-type Teardown
-  = Effect Unit
+type Test = Effect Unit
 
-type TestSuite
-  = Free TestF Unit
+type Setup = Effect Foreign
 
-data Group
-  = Group String TestSuite
+type Teardown = Foreign -> Effect Unit
+
+type TestSetup a = Effect a
+
+type TestTeardown a = a -> Effect Unit
+
+type TestSuite = Free TestF Unit
+
+data Group = Group String TestSuite
 
 data TestF a
   = TestGroup Group a
   | TestUnit String Test a
-  | TestState Setup Teardown TestSuite a
+  | TestState Setup Teardown (Foreign -> TestSuite) a
+  | TestStateSimple Setup Teardown TestSuite a
   | TestTimeout Int TestSuite a
   | TestEmpty a
 
@@ -58,6 +65,7 @@ instance functorTestF :: Functor TestF where
   map f (TestGroup g a) = TestGroup g (f a)
   map f (TestUnit l t a) = TestUnit l t (f a)
   map f (TestState s t su a) = TestState s t su (f a)
+  map f (TestStateSimple s t su a) = TestStateSimple s t su (f a)
   map f (TestTimeout t su a) = TestTimeout t su (f a)
   map f (TestEmpty a) = TestEmpty (f a)
 
@@ -70,17 +78,35 @@ test l t = liftF $ TestUnit l t unit
 empty :: TestSuite
 empty = liftF $ TestEmpty unit
 
-setupTeardown :: Setup -> Teardown -> TestSuite -> TestSuite
-setupTeardown s t su = liftF $ TestState s t su unit
+testDataToForeign :: forall a. a -> Foreign
+testDataToForeign = unsafeCoerce
 
-setup :: Setup -> TestSuite -> TestSuite
-setup s su = liftF $ TestState s (pure unit) su unit
+teardownToForeign :: forall a. TestTeardown a -> Teardown
+teardownToForeign = unsafeCoerce
 
-teardown :: Teardown -> TestSuite -> TestSuite
-teardown t su = liftF $ TestState (pure unit) t su unit
+testSuiteToForeign :: forall a. (a -> TestSuite) -> (Foreign -> TestSuite)
+testSuiteToForeign = unsafeCoerce
 
-timeout :: Int -> TestSuite -> TestSuite
-timeout t su = liftF $ TestTimeout t su unit
+setupTeardown :: forall a. TestSetup a -> TestTeardown a -> (a -> TestSuite) -> TestSuite
+setupTeardown s t su = liftF $ TestState (map testDataToForeign s) (teardownToForeign t) (testSuiteToForeign su) unit
+
+setup :: forall a. TestSetup a -> (a -> TestSuite) -> TestSuite
+setup s su = liftF $ TestState (map testDataToForeign s) (\_ -> pure unit) (testSuiteToForeign su) unit
+
+teardown :: Effect Unit -> TestSuite -> TestSuite
+teardown t su = liftF $ TestState (pure $ unsafeCoerce unit) (const t) (const su) unit
+
+setup_ :: forall a. Effect Unit -> TestSuite -> TestSuite
+setup_ s su = liftF $ TestStateSimple (map testDataToForeign s) (\_ -> pure unit) su unit
+
+setupTeardown_ :: forall a. Effect Unit -> Effect Unit -> TestSuite -> TestSuite
+setupTeardown_ s t su = liftF $ TestStateSimple (map testDataToForeign s) (\_ -> t) su unit
+
+-- This should be the only way allowed to build a Timeout node, because eunit only applies timeouts to single tests.
+-- This also implies that there seem not to be a way to apply a collective timeout to a list of a tests.
+-- We are not even the first to run into this: http://erlang.org/pipermail/erlang-questions/2015-January/082755.html
+timeout :: Int -> String -> Test -> TestSuite
+timeout time label t = liftF $ TestTimeout time (test label t) unit
 
 collectTests :: TestSuite -> List TestSet
 collectTests tst = reverse $ execState (runFreeM go tst) nil
@@ -90,17 +116,36 @@ collectTests tst = reverse $ execState (runFreeM go tst) nil
   go (TestUnit s t a) = do
     modify_ (testSet (tuple2 (atom "spawn") (tuple2 s t)) : _)
     pure a
-  go (TestGroup (Group s tests) a) = do
+  go (TestGroup (Group label tests) a) = do
     let
       grouped = case runState (runFreeM go tests) nil of
         Tuple.Tuple _ g -> reverse g
-    modify_ (testSet (tuple2 s grouped) : _)
+    modify_ (testSet (tuple2 label grouped) : _)
+    pure a
+  go (TestStateSimple s t tests a) = do
+    let
+      grouped = case runState (runFreeM go tests) nil of
+        Tuple.Tuple _ g -> reverse g
+    modify_
+      ( testSet
+          ( tuple4
+              (atom "setup")
+              s
+              (\testData -> unsafePerformEffect (t testData))
+              grouped
+          ) : _
+      )
     pure a
   go (TestState s t tests a) = do
-    let
-      grouped = case runState (runFreeM go tests) nil of
-        Tuple.Tuple _ g -> reverse g
-    modify_ (testSet (tuple4 (atom "setup") s (\_ -> unsafePerformEffect t) grouped) : _)
+    modify_
+      ( testSet
+          ( tuple4
+              (atom "setup")
+              s
+              (\testData -> unsafePerformEffect (t testData))
+              (\foreign_ -> reverse $ collectTests (tests foreign_))
+          ) : _
+      )
     pure a
   go (TestTimeout t tests a) = do
     let
